@@ -223,4 +223,6 @@ catkin_install_python(PROGRAMS
 ## Add folders to be run by python nosetests
 if (CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test)
+  find_package(rostest REQUIRED)
+  add_rostest(test/tag.test)
 endif()

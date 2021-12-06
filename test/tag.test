@@ -1,0 +1,25 @@
+<launch>
+  <!-- Detection and publishing of apriltag tf frames (adapted from apriltag_ros/launch/continuous_detection.launch) -->
+  <arg name="demo" default="true"/>
+  <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+  <arg name="node_namespace" default="apriltag_ros_continuous_node" />
+  <arg name="camera_frame" default="camera_link" />
+  <arg name="use_color" default="false" />
+
+  <!-- Load list of ingredients -->
+  <rosparam command="load" file="$(find final_project_mixotics)/config/objects.yaml" />
+  <param name="camera_frame" value="$(arg camera_frame)"/>
+  <param name="use_color" value="$(arg use_color)"/>
+
+  <!-- Nodes for identifying scene objects -->
+  <node name="update_scene" pkg="final_project_mixotics" type="update_scene"/>
+  
+  <!-- Optional demo with panda_moveit_config and update_scene node-->
+  <group if="$(eval arg('demo') ==true)">
+    <include file="$(find panda_moveit_config)/launch/demo.launch"/>
+  </group>
+  
+  <node pkg="rosbag" type="play" name="playback" output="screen" args="--clock $(find final_project_mixotics)/bag/tag_data.bag"/>
+  <test test-name="tester" pkg="final_project_mixotics" type="tag_testing.py"/>
+  
+</launch>
