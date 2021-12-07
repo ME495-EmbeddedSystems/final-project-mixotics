@@ -1,8 +1,6 @@
 <launch>
   <arg name="use_color" default="false" />
   <param name="use_color" value="$(arg use_color)"/>
-
-  <node pkg="final_project_mixotics" type="vision" name="vision"/>
-  <node pkg="rosbag" type="play" name="playback" output="screen" args="--clock $(find final_project_mixotics)/bag/cup_data.bag"/>
+  <node pkg="rosbag" type="play" name="playback" output="screen" args="--clock $(find final_project_mixotics)/bag/cup_data.bag" required="true"/>
   <test test-name="cup_test" pkg="final_project_mixotics" type="cup_detection_test.py"/>
 </launch>
