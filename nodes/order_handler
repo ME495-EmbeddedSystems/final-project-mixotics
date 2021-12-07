@@ -9,6 +9,7 @@ from final_project_mixotics.srv import VerifyInstr, VerifyInstrResponse
 from final_project_mixotics.srv import PourInstr, PourInstrRequest
 from final_project_mixotics.srv import SetInstr, SetInstrRequest
 from final_project_mixotics.srv import ConfirmOrder, ConfirmOrderRequest
+from final_project_mixotics.msg import CupDetection
 from menu_utilities.enum_defs import InstrEnum
 from menu_utilities.menu_parser import parse_menu_xml
 from menu_utilities.order_tracker import OrderTracker
@@ -70,6 +71,8 @@ class OrderHandler:
         self._pour_client = rospy.ServiceProxy('pour', PourInstr)
         self._release_client = rospy.ServiceProxy('stock', SetInstr)
         self._confirm_order_client = rospy.ServiceProxy('confirm_order', ConfirmOrder)
+        # Set up subscribers
+        self._cup_detection_sub = rospy.Subscriber('cup_status', CupDetection, self.cup_detection_callback)
         # Parse Menu file
         self._menu_dict = parse_menu_xml(self.menu_path)
         # Build StoreRoom 
@@ -88,6 +91,11 @@ class OrderHandler:
         self._new_order_num = 1 # Start orders at 1
         self._ORDER_LIMIT = 100 # Max number of simulatanous orders
         self._CUP_SLOTS = 4
+
+        # Current status of cup slots
+        self.cup_status = None
+        # Recent state of cup slots
+        self.cup_states = ['EMPTY', 'EMPTY', 'EMPTY', 'EMPTY']
         
         # Set up run rate and main function
         self._RATE = 20 # in Hz
@@ -219,6 +227,23 @@ class OrderHandler:
         rospy.wait_for_service("confirm_order")
         try:
             _ = self._confirm_order(req)
+
+            time = rospy.Time().now().to_sec()
+
+            id_check = True
+            while id_check: 
+                if ((rospy.Time().now().to_sec() - time) > 180):
+                    rospy.logerr('Please come pick up your drinks. You are holding up the ordering system.')
+                check_list = []
+                for c in cup_ids:
+                    if self.cup_states[c-1] == 'RECEIVED':
+                        self.cup_states[c-1] = 'CONFIRMED'
+                        check_list.append(True)
+                    else:
+                        check_list.append(False)
+                if all(check_list):
+                    id_check = False
+
         except rospy.ServiceException as e:
             print(f"Can't communicate with interface")
             rospy.logerr(e)
@@ -239,6 +264,19 @@ class OrderHandler:
         except rospy.ServiceException as e:
             print(f"Can't communicate with interface")
             rospy.logerr(e)
+
+    def cup_detection_callback(self, cup_array):
+        if self.cup_status:
+            for i, c in enumerate(self.cup_status):
+                if self.cup_status[i] and not cup_array[i]:
+                    self.cup_states[i] = 'REMOVED'
+                elif not self.cup_status[i] and cup_array[i]:
+                    if self.cup_states[i] == 'REMOVED':
+                        self.cup_states[i] = 'RECEIVED'
+                    else:
+                        self.cup_states[i] = 'PLACED'
+        else:
+            self.cup_status = cup_array
 
 
     def main_loop(self, event):
